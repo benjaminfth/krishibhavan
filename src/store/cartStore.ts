@@ -16,7 +16,7 @@ export const useCartStore = create<CartStore>((set) => ({
   items: [],
   addItem: async (product, quantity, office) => {
     const { user } = useAuthStore.getState(); // Get the user from the auth store
-    const userId = user.id;
+    const userId = user?.id;
 
     set((state) => {
       const existingItem = state.items.find(item => item.product.id === product.id);
@@ -44,7 +44,7 @@ export const useCartStore = create<CartStore>((set) => ({
   },
   removeItem: async (productId) => {
     const { user } = useAuthStore.getState(); // Get the user from the auth store
-    const userId = user.id;
+    const userId = user?.id;
 
     set((state) => ({
       items: state.items.filter(item => item.product.id !== productId)
@@ -59,7 +59,7 @@ export const useCartStore = create<CartStore>((set) => ({
   },
   updateQuantity: async (productId, quantity) => {
     const { user } = useAuthStore.getState(); // Get the user from the auth store
-    const userId = user.id;
+    const userId = user?.id;
 
     set((state) => ({
       items: state.items.map(item =>
@@ -77,7 +77,7 @@ export const useCartStore = create<CartStore>((set) => ({
   },
   clearCart: async () => {
     const { user } = useAuthStore.getState(); // Get the user from the auth store
-    const userId = user.id;
+    const userId = user?.id;
 
     set({ items: [] });
 
@@ -87,7 +87,7 @@ export const useCartStore = create<CartStore>((set) => ({
   },
   preBookNow: async (product, quantity, office, totalAmount) => {
     const { user } = useAuthStore.getState(); // Get the user from the auth store
-    const userId = user.id;
+    const userId = user?.id;
     const bookingDateTime = new Date().toISOString(); // Current date and time
     
     const bookingData = {

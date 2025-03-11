@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Home } from './pages/Home';
@@ -9,6 +10,10 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Profile } from './pages/Profile';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Rubber } from './pages/iks/Rubber';
+import { Avocado } from './pages/iks/Avocado';
+import { Nutmeg } from './pages/iks/Nutmeg';
+import { Cardamom } from './pages/iks/Cardamom';
 import ProductDetails from './pages/ProductDetails';
 
 function App() {
@@ -25,6 +30,10 @@ function App() {
             <Route path="/offices" element={<Offices />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/iks/rubber" element={<Rubber />} />
+            <Route path="/iks/avocado" element={<Avocado />} />
+            <Route path="/iks/nutmeg" element={<Nutmeg />} />
+            <Route path="/iks/cardamom" element={<Cardamom />} />
             <Route
               path="/profile"
               element={

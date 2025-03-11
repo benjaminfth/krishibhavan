@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Minus, Plus, Trash2, MapPin, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { format, addHours } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -7,12 +7,18 @@ import { useCartStore } from '../store/cartStore';
 
 export const Cart = () => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const userId = localStorage.getItem("userId");
   const { isAuthenticated, user } = useAuthStore();
   const { items: cartItems, updateQuantity, removeItem, clearCart, preBookNow } = useCartStore();
   const navigate = useNavigate();
 
   const calculateTotal = () => {
-    const total = cartItems.reduce((total, item) => total + (item.product.price * item.quantity), 0);
+    const userId = localStorage.getItem("userId");
+    const total = cartItems.reduce(
+      (total, item) =>
+        total + (userId ? item.product.price_registered : item.product.price_unregistered) * item.quantity,
+      0
+    );
     return isNaN(total) ? 0 : total;
   };
 
@@ -116,7 +122,9 @@ export const Cart = () => {
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-gray-600">Price per unit</p>
-                          <p className="text-lg font-semibold text-gray-800">₹{item.product.price}</p>
+                          <p className="text-lg font-semibold text-gray-800">
+                            ₹{userId ? item.product.price_registered : item.product.price_unregistered}
+                          </p>
                         </div>
                       </div>
 

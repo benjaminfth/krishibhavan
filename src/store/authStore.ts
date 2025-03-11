@@ -11,6 +11,7 @@ interface RegisterData {
   pincode: string;
   password: string;
   role: 'customer' | 'seller';
+  uniqueId: string;
 }
 
 export const useAuthStore = create<AuthState & {
@@ -18,6 +19,7 @@ export const useAuthStore = create<AuthState & {
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  setUser: (user: User) => void; // Add setUser method
 }>()(
   persist(
     (set) => ({
@@ -31,7 +33,6 @@ export const useAuthStore = create<AuthState & {
         try {
           const response = await axios.post('http://localhost:5000/login', { email, password });
 
-
           const user: User = {
             id: response.data.id,
             email: response.data.email,
@@ -39,10 +40,10 @@ export const useAuthStore = create<AuthState & {
             phone: response.data.phone,
             address: response.data.address,
             pincode: response.data.pincode,
-            role: response.data.role
+            role: response.data.role,
+            uniqueId: response.data.uniqueId
           };
-          
-          
+
           set({ user, isAuthenticated: true, isLoading: false });
         } catch (error) {
           console.error("❌ Error: ", error);
@@ -61,9 +62,10 @@ export const useAuthStore = create<AuthState & {
             phone: data.phone,
             address: data.address,
             pincode: data.pincode,
-            role: data.role
+            role: data.role,
+            uniqueId: data.uniqueId
           };
-          
+
           set({ user, isAuthenticated: true, isLoading: false });
         } catch (error) {
           console.error("❌ Error: ", error);
@@ -77,6 +79,11 @@ export const useAuthStore = create<AuthState & {
 
       clearError: () => {
         set({ error: null });
+      },
+
+      setUser: (user: User) => {
+        console.log("Updating user in auth store:", user); // Log the user data being set
+        set({ user });
       }
     }),
     {

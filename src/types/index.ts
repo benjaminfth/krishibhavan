@@ -4,9 +4,10 @@ export interface Product {
   description: string;
   price_registered: number;
   price_unregistered: number;
-  category: 'Seeds' | 'Saplings' | 'Pesticides' | 'Fertilizers';
+  sellerId: string;  // Seller's ID
+  category: string;
   imageUrl: string;
-  krishiBhavan: 'Krishi Bhavan 1' | 'Krishi Bhavan 2';
+  krishiBhavan: string;
   stock: number;
   officeId: string;
 }
@@ -21,16 +22,14 @@ export interface Office {
 
 export interface Booking {
   id: string;
-  productId: string;
-  userId: string;
-  officeId: string;
+  user_id: string;
+  product_name: string;
+  product_id: string;
   quantity: number;
-  status: 'pending' | 'confirmed' | 'collected' | 'expired';
-  bookingDate: Date;
-  expiryDate: Date;
-  product: Product;
-  office: Office;
-  totalAmount: number;
+  krishiBhavan: string;
+  booking_date_time: Date;
+  total_amount: number;
+  collection_status: 'pending' | 'confirmed' | 'collected' | 'expired';
 }
 
 export interface CartItem {
@@ -45,6 +44,7 @@ export interface User {
   name: string;
   phone: string;
   role: 'customer' | 'seller';
+  uniqueId: string;
   address: string;
   pincode: string;
 }

@@ -11,11 +11,13 @@ interface Product {
   id: string;
   name: string;
   description: string;
-  price: number;
-  category: "Seeds" | "Saplings" | "Pesticides" | "Fertilizers" | string;
+  price_registered: number;
+  price_unregistered: number;
+  category: string;
   imageUrl: string;
   stock: number;
   krishiBhavan: string;
+  sellerId: string;
   officeId: string;
 }
 
@@ -27,6 +29,7 @@ export const Products = () => {
   const [error, setError] = useState<string | null>(null);
   const { query } = useSearchStore();
   const location = useLocation();
+  const [userSellerId, setUserSellerId] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -43,7 +46,6 @@ export const Products = () => {
       setLoading(true);
       try {
         const response = await fetch("http://localhost:5000/products");
-        {/*if (!response.ok) throw new Error("Failed to fetch products");*/}
         const data: Product[] = await response.json();
         setProducts(data);
       } catch (err) {
@@ -56,27 +58,22 @@ export const Products = () => {
     fetchProducts();
   }, []);
 
-  const handlePreBook = async (productId: string) => {
-    const userId = localStorage.getItem("user_id");
-    if (!userId) {
-      alert("Please log in to pre-book a product.");
-      return;
-    }
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      const userId = localStorage.getItem("user_id");
+      if (!userId) return;
 
-    try {
-      const response = await fetch("http://localhost:5000/add-to-cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, user_id: userId }),
-      });
+      try {
+        const response = await fetch(`http://localhost:5000/users/${userId}`);
+        const userData = await response.json();
+        setUserSellerId(userData.sellerId); // Store the sellerId assigned to this user
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      }
+    };
 
-      const data = await response.json();
-      alert(data.message); // Show success or error message
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Failed to pre-book product.");
-    }
-  };
+    fetchUserDetails();
+  }, []);
 
   const filteredProducts = useMemo(() => {
     let filtered: Product[] = [];
@@ -105,16 +102,6 @@ export const Products = () => {
 
     return filtered;
   }, [selectedCategory, query, products]);
-
-  const groupedByKrishibhavan = useMemo(() => {
-    if (selectedCategory !== "Shop by Krishibhavan") return { Default: filteredProducts };
-
-    return filteredProducts.reduce((acc, product) => {
-      if (!acc[product.krishiBhavan]) acc[product.krishiBhavan] = [];
-      acc[product.krishiBhavan].push(product);
-      return acc;
-    }, {} as Record<string, Product[]>);
-  }, [selectedCategory, filteredProducts]);
 
   return (
     <div className="space-y-6">
@@ -167,26 +154,11 @@ export const Products = () => {
               </p>
             </div>
           ) : (
-            <>
-              {selectedCategory === "Shop by Krishibhavan" ? (
-                Object.entries(groupedByKrishibhavan).map(([krishibhavan, products]) => (
-                  <div key={krishibhavan} className="mb-8">
-                    <h2 className="text-xl font-semibold text-green-700 mb-4">{krishibhavan}</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {products.map((product) => (
-                        <ProductCard key={product._id} product={product} onPreBook={handlePreBook} />
-                      ))}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProducts.map((product) => (
-                    <ProductCard key={product._id} product={product} onPreBook={handlePreBook} />
-                  ))}
-                </div>
-              )}
-            </>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product._id} product={product} />
+              ))}
+            </div>
           )}
         </div>
       </div>

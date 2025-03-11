@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Clock, MapPin, X, Minus, Plus, ShoppingCart } from 'lucide-react';
 import type { Product } from '../types'; // Ensure the path is correct
 import { useCartStore } from '../store/cartStore';
+import { useAuthStore } from '../store/authStore';
 
 interface ProductCardProps {
   product: Product;
@@ -11,13 +12,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore((state) => state.addItem);
+  const user = useAuthStore((state) => state.user); // Get user info
 
   const handleQuantityChange = (value: number) => {
     setQuantity(Math.max(1, Math.min(value, product.stock)));
   };
 
   const handleAddToCart = () => {
-    // Mock office data - in a real app, this would come from the product's office details
     const office = {
       id: product.officeId,
       name: 'Krishi Bahavan - Central Office',
@@ -25,8 +26,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       address: '123 Agriculture Road, Kerala 695001',
       contact: '+91 1234567890'
     };
-
-    addItem(product, quantity, office);
+    addItem(product, quantity,office);
     setShowPopup(false);
     setQuantity(1);
   };
@@ -43,7 +43,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
           <p className="text-sm text-gray-600 mt-1">{product.description}</p>
           <div className="mt-4 flex items-center justify-between">
-            <span className="text-xl font-bold text-green-700">₹{product.price}</span>
+            <span className="text-xl font-bold text-green-700">
+              ₹{user?.uniqueId ? product.price_registered : product.price_unregistered}
+            </span>
             <span className={`px-2 py-1 rounded-full text-sm ${
               product.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
             }`}>
@@ -90,7 +92,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               />
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">{product.name}</h3>
-                <p className="text-green-700 font-semibold mt-1">₹{product.price}</p>
+                <p className="text-green-700 font-semibold mt-1">
+                  ₹{user?.uniqueId ? product.price_registered : product.price_unregistered}
+                </p>
               </div>
             </div>
 
@@ -128,17 +132,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
 
             <div className="mt-6 space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center text-gray-600">
-                  <Clock className="h-5 w-5 mr-2" />
-                  <span>24-hour collection window after pre-booking</span>
-                </div>
-                <div className="flex items-center text-gray-600 mt-2">
-                  <MapPin className="h-5 w-5 mr-2" />
-                  <span>Collect from nearest Krishi-Bahavan office</span>
-                </div>
-              </div>
-
               <button
                 onClick={handleAddToCart}
                 className="w-full bg-green-700 text-white py-3 rounded-lg hover:bg-green-800 

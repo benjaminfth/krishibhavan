@@ -8,8 +8,7 @@ import re
 from bson import ObjectId
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,6 +21,19 @@ users_collection = db["users"]
 products_collection = db["products"]  # New collection for storing products
 cart_collection = db["cart"]
 bookings_collection = db["bookings"]
+
+
+
+def _build_cors_preflight_response():
+    response = jsonify({'status': 'success'})
+    response.headers.add("Access-Control-Allow-Origin", "http://localhost:5173")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS")
+    return response
+
+def _corsify_actual_response(response):
+    response.headers.add("Access-Control-Allow-Origin", "http://localhost:5173")
+    return response
 
 # ======================= USER AUTHENTICATION ========================== #
 
@@ -104,18 +116,20 @@ def login():
 @app.route('/update-profile', methods=['PUT'])
 def update_profile():
     data = request.get_json()
+    logger.info("Received update profile data: %s", data)  # Log the received data
     user_id = data.get('userId')
 
     if not user_id:
         return jsonify({'error': 'User ID is required'}), 400
 
-    try:
-        user_id = ObjectId(user_id)  # Convert string to MongoDB ObjectId
-    except:
-        return jsonify({'error': 'Invalid user ID format'}), 400
+    # try:
+    #     user_id = ObjectId(user_id)  # Convert string to MongoDB ObjectId
+    # except:
+    #     return jsonify({'error': 'Invalid user ID format'}), 400
 
     # Fetch existing user data to compare changes
-    existing_user = users_collection.find_one({"_id": user_id}, {"password": 0})
+    _id = ObjectId(user_id)
+    existing_user = users_collection.find_one({"_id": _id}, {"password": 0})
     if not existing_user:
         return jsonify({'error': 'User not found'}), 404
 
@@ -126,17 +140,20 @@ def update_profile():
             updated_data[field] = data[field]
 
     if not updated_data:  # No changes detected
+        logger.info("No updates were made for user ID: %s", user_id)
         return jsonify({'error': 'No updates were made'}), 400
 
     # Update the user in MongoDB
-    result = users_collection.update_one({"_id": user_id}, {"$set": updated_data})
+    result = users_collection.update_one({"_id": _id}, {"$set": updated_data})
 
     if result.modified_count == 0:
         return jsonify({'error': 'Failed to update profile'}), 400
 
     # Fetch the updated user data
-    updated_user = users_collection.find_one({"_id": user_id}, {"password": 0})  # Exclude password
+    updated_user = users_collection.find_one({"_id": _id}, {"password": 0})  # Exclude password
+    updated_user['id'] = str(updated_user.pop('_id'))  # Rename _id to id
 
+    logger.info("Profile updated successfully for user data: %s", updated_user)
     return jsonify({'message': 'Profile updated successfully', 'user': updated_user}), 200
 
 # ========================== PRODUCT MANAGEMENT ========================== #
@@ -415,6 +432,72 @@ def pre_book_now():
     db.bookings.insert_one(booking)
     logger.info("Pre-booking successful: %s", booking)
     return jsonify({'message': 'Pre-booking successful', 'id': str(booking['_id'])}), 201
+
+@app.route('/cart', methods=['GET'])
+def get_cart_items():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        logger.error("Failed to fetch cart items: User ID is required")
+        return jsonify({'error': 'User ID is required'}), 400
+
+    cart_items = list(db.cart.find({'user_id': ObjectId(user_id)}))
+    if not cart_items:
+        logger.error("No items found in cart for user_id %s", user_id)
+        return jsonify({'error': 'No items found in cart for this user'}), 404
+
+    cart_items_list = [
+        {
+            'product_id': str(item['product_id']),
+            'product_name': db.products.find_one({'_id': item['product_id']})['name'],
+            'product_price': db.products.find_one({'_id': item['product_id']})['price_registered'],
+            'product_imageUrl': db.products.find_one({'_id': item['product_id']})['imageUrl'],
+            'product_description': db.products.find_one({'_id': item['product_id']})['description'],
+            'product_stock': db.products.find_one({'_id': item['product_id']})['stock'],
+            'quantity': item['quantity'],
+            'krishiBhavan': db.products.find_one({'_id': item['product_id']})['krishiBhavan']
+        }
+        for item in cart_items
+    ]
+
+    logger.info("Fetched cart items for user_id %s: %s", user_id, cart_items_list)
+    return jsonify(cart_items_list), 200
+
+@app.route('/bookings', methods=['GET'])
+def get_user_bookings():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        logger.error("Failed to fetch bookings: User ID is required")
+        return jsonify({'error': 'User ID is required'}), 400
+
+    # try:
+    #     user_id = ObjectId(user_id)
+    # except Exception as e:
+    #     logger.error("Invalid user ID format: %s", e)
+    #     return jsonify({'error': 'Invalid user ID format'}), 400
+
+    logger.info("Fetching bookings for user_id: %s", user_id)
+    bookings = list(db.bookings.find({'user_id': user_id}))
+    if not bookings:
+        logger.error("No bookings found for user_id %s", user_id)
+        return jsonify({'error': 'No bookings found for this user'}), 404
+
+    bookings_list = [
+        {
+            'id': str(booking['_id']),
+            'user_id': booking['user_id'],
+            'product_name': booking['product_name'],
+            'product_id': booking['product_id'],
+            'quantity': booking['quantity'],
+            'krishiBhavan': booking['krishiBhavan'],
+            'booking_date_time': booking['booking_date_time'],
+            'total_amount': booking['total_amount'],
+            'collection_status': booking['collection_status']
+        }
+        for booking in bookings
+    ]
+
+    logger.info("Fetched bookings for user_id %s: %s", user_id, bookings_list)
+    return jsonify(bookings_list), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
