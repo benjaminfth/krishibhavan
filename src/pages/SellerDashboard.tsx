@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Package, TrendingUp, Users, AlertCircle, CheckCircle, Clock, Search } from 'lucide-react';
 import type { Product, Booking } from '../types';
 import { format } from 'date-fns';
+import { useAuthStore } from '../store/authStore';
 
 const stats = [
   { name: 'Total Products', value: '24', icon: Package, color: 'bg-blue-500' },
@@ -12,7 +13,8 @@ const stats = [
 
 export const SellerDashboard = () => {
   const [products, setProducts] = useState<Product[]>([]);
-const userType = localStorage.getItem("userType") || "unregistered"; // Assume userType is stored in localStorage
+  const userType = localStorage.getItem("userType") || "unregistered"; // Assume userType is stored in localStorage
+  const { user } = useAuthStore();
   const [formData, setFormData] = useState<Pick<Product, 'name' | 'description' | "price_registered" | "price_unregistered" | 'stock' | 'category' | 'krishiBhavan' | 'imageUrl'>>({
     name: '',
     description: '',
@@ -20,40 +22,56 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
     price_unregistered: 0,
     stock: 0,
     category: 'Seeds',
-    krishiBhavan: 'Krishi Bhavan 1',
+    krishiBhavan: user?.name || '', // Get user name from auth store
     imageUrl: ''
   });
-  const [bookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<'products' | 'collections'>('collections');
   const [searchTerm, setSearchTerm] = useState('');
   const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
 
-  // Fetch products from MongoDB when the component mounts
-  const fetchProducts = async () => {
+  // Fetch bookings from the backend
+  const fetchBookings = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/products?user_type=${userType}`);
-      if (!response.ok) throw new Error("Failed to fetch products");
-      
+      setLoadingBookings(true); // Show loading state
+      const response = await fetch(`http://localhost:5000/bookings?krishiBhavan=${user?.name}`);
       const data = await response.json();
-      setProducts(data);
+      if (!response.ok) throw new Error(data.error || 'Failed to fetch bookings');
+      setBookings(data);
     } catch (error) {
-      console.error("Error fetching products:", error);
+      console.error('Error fetching bookings:', error);
+    } finally {
+      setLoadingBookings(false); // Hide loading state
     }
   };
+
+  // Fetch products from MongoDB when the component mounts
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/products?krishiBhavan=${user?.name}`);
+        if (!response.ok) throw new Error("Failed to fetch products");
   
-  useEffect(() => {
-    fetch("http://127.0.0.1:5000/products?user_type=unregistered")
-      .then((response) => response.json())
-      .then((data) => {
-        console.log("Fetched products:", data); // Debugging: Check API response
+        const data = await response.json();
         setProducts(data);
-      })
-      .catch((error) => console.error("Error fetching products:", error));
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      }
+    };
+
+  // Call fetchBookings when the component mounts or when the collections tab is active
+  useEffect(() => {
+    if (activeTab === 'collections') {
+      fetchBookings();
+    }
+  }, [activeTab]);
+
+  // Call fetchProducts when the component mounts
+  useEffect(() => {
+    fetchProducts();
   }, []);
-  
-      
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -62,20 +80,19 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
       [name]: ['registeredPrice', 'unregisteredPrice', 'stock'].includes(name) ? Number(value) : value
     }));
   };
-  
 
   const handleAddOrUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+
     try {
-      let response;  
+      let response;
       if (selectedProduct) {
         response = await fetch(`http://localhost:5000/products/${selectedProduct.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         });
-  
+
         if (!response.ok) throw new Error('Failed to update product');
       } else {
         response = await fetch('http://localhost:5000/products', {
@@ -83,13 +100,13 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         });
-  
+
         if (!response.ok) throw new Error('Failed to add product');
       }
-  
-      // ✅ Fetch latest products from backend
-      await fetchProducts(); 
-  
+
+      // Fetch latest products after adding/updating
+      fetchProducts();
+
       setShowAddModal(false);
       setSelectedProduct(null);
       setFormData({
@@ -99,14 +116,13 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
         price_unregistered: 0,
         stock: 0,
         category: 'Seeds',
-        krishiBhavan: 'Krishi Bhavan 1',
+        krishiBhavan: user?.name || '',
         imageUrl: '',
       });
     } catch (error) {
       console.error('Error adding/updating product:', error);
     }
   };
-  
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
@@ -124,25 +140,44 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    try {  
+    try {
       const response = await fetch(`http://localhost:5000/products/${productId}`, {
         method: 'DELETE',
       });
-  
+
       if (!response.ok) throw new Error('Failed to delete product');
-  
+
       setProducts((prev) => prev.filter((p) => p.id !== productId));
       console.log('Product deleted successfully');
     } catch (error) {
       console.error('Error deleting product:', error);
     }
-  };  
+  };
 
   const handleCompleteCollection = async (bookingId: string) => {
     setProcessingBookingId(bookingId);
     try {
-      // Mock API call - replace with actual update
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch(`http://localhost:5000/bookings/${bookingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collection_status: 'collected' }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update booking status');
+      }
+  
+      // Update the local state to reflect the change
+      setBookings((prevBookings) =>
+        prevBookings.map((booking) =>
+          booking.id === bookingId
+            ? { ...booking, collection_status: 'collected' }
+            : booking
+        )
+      );
+  
+      console.log('Booking status updated to collected');
     } catch (error) {
       console.error('Failed to complete collection:', error);
     } finally {
@@ -150,8 +185,8 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
     }
   };
 
-  const filteredBookings = bookings.filter(booking => 
-    booking?.product?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredBookings = bookings.filter(booking =>
+    booking?.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     booking?.id?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -240,37 +275,32 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
                 <div key={booking.id} className="border rounded-lg p-4">
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <img
-                        src={booking.product.imageUrl}
-                        alt={booking.product.name}
-                        className="w-16 h-16 rounded-lg object-cover"
-                      />
                       <div>
-                        <h3 className="font-medium text-gray-800">{booking.product.name}</h3>
+                        <h3 className="font-medium text-gray-800">{booking.product_name}</h3>
                         <p className="text-sm text-gray-600">
                           Order #{booking.id} • Quantity: {booking.quantity}
                         </p>
                         <p className="text-sm text-gray-600">
-                          Total: ₹{booking.totalAmount}
+                          Total: ₹{booking.total_amount}
                         </p>
                       </div>
                     </div>
 
                     <div className="mt-4 md:mt-0 flex flex-col items-end">
                       <div className="flex items-center space-x-2 mb-2">
-                        {booking.status === 'pending' ? (
+                        {booking.collection_status === 'pending' ? (
                           <Clock className="h-5 w-5 text-yellow-500" />
-                        ) : booking.status === 'confirmed' ? (
+                        ) : booking.collection_status === 'confirmed' ? (
                           <CheckCircle className="h-5 w-5 text-green-500" />
                         ) : (
                           <Package className="h-5 w-5 text-blue-500" />
                         )}
                         <span className="font-medium text-gray-800">
-                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                          {booking.collection_status.charAt(0).toUpperCase() + booking.collection_status.slice(1)}
                         </span>
                       </div>
 
-                      {(booking.status === 'confirmed' || booking.status === 'pending') && (
+                      {(booking.collection_status === 'confirmed' || booking.collection_status === 'pending') && (
                         <button
                           onClick={() => handleCompleteCollection(booking.id)}
                           disabled={processingBookingId === booking.id}
@@ -296,13 +326,13 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
                     <div>
                       <p className="text-gray-600">Booking Date</p>
                       <p className="font-medium text-gray-800">
-                        {format(booking.bookingDate, "MMM d, yyyy 'at' h:mm a")}
+                        {format(new Date(booking.booking_date_time), "MMM d, yyyy 'at' h:mm a")}
                       </p>
                     </div>
                     <div>
                       <p className="text-gray-600">Collection Deadline</p>
                       <p className="font-medium text-gray-800">
-                        {format(booking.expiryDate, "MMM d, yyyy 'at' h:mm a")}
+                        {format(new Date(booking.expiry_date), "MMM d, yyyy 'at' h:mm a")}
                       </p>
                     </div>
                   </div>
@@ -464,19 +494,17 @@ const userType = localStorage.getItem("userType") || "unregistered"; // Assume u
                   />
                 </div>
               </div>
-              <div>
+                            <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Krishi Bhavan
                 </label>
-                <select
+                <input
+                  type="text"
                   name="krishiBhavan"
                   value={formData.krishiBhavan}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="Krishi Bhavan 1">Krishi Bhavan 1</option>
-                  <option value="Krishi Bhavan 2">Krishi Bhavan 2</option>
-                </select>
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 focus:outline-none"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

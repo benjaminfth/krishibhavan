@@ -41,7 +41,8 @@ export const useAuthStore = create<AuthState & {
             address: response.data.address,
             pincode: response.data.pincode,
             role: response.data.role,
-            uniqueId: response.data.uniqueId
+            uniqueId: response.data.uniqueId,
+            sellerId: response.data.sellerId
           };
 
           set({ user, isAuthenticated: true, isLoading: false });

@@ -120,6 +120,12 @@ export const Profile = () => {
     }
   };
 
+  const getKrishiBhavanName = (sellerId: string): string => {
+    if (!sellerId.startsWith('SL')) return 'Unknown Krishi Bhavan';
+    const bhavanNumber = parseInt(sellerId.slice(-2), 10); // Remove 'SL' and parse the number
+    return `Krishi Bhavan ${bhavanNumber}`;
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="space-y-8">
@@ -255,6 +261,15 @@ export const Profile = () => {
                       <div>
                         <p className="text-sm text-gray-600">Address</p>
                         <p className="font-medium text-gray-800">{user.address}</p>
+                      </div>
+                    </div>
+                  )}
+                  {user?.sellerId && (
+                    <div className="flex items-center space-x-3">
+                      <MapPin className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Krishi Bhavan</p>
+                        <p className="font-medium text-gray-800">{getKrishiBhavanName(user.sellerId)}</p>
                       </div>
                     </div>
                   )}

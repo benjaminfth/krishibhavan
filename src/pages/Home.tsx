@@ -1,6 +1,9 @@
 import { Leaf, Sprout, FlaskRound as Flask, Droplets } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ProductCard } from '../components/ProductCard';
+import { useEffect, useState } from 'react';
+
+
 
 const categories = [
   { name: 'Seeds', icon: Leaf, color: 'bg-yellow-100' },
@@ -9,33 +12,8 @@ const categories = [
   { name: 'Fertilizers', icon: Droplets, color: 'bg-blue-100' }
 ];
 
-const featuredProducts = [
-    {
-    id: '1',
-    name: 'Organic Tomato Seeds',
-    description: 'High-yield, disease-resistant tomato seeds perfect for home gardens',
-    price: 45,
-    category: 'Seeds',
-    imageUrl: '/src/components/tomato_seeds.jpg',
-    stock: 100,
-    krishiBhavan: 'Krishi Bahavan 1',
-    officeId: 'kb1'
-  },
-  {
-    id: '2',
-    name: 'Mango Saplings',
-    description: 'Alphonso mango variety, grafted saplings ready for planting',
-    price: 120,
-    category: 'Saplings',
-    imageUrl: '/src/components/mango_sapling.webp ',
-    stock: 50,
-     krishiBhavan: 'Krishi Bahavan 2',
-     
-    officeId: 'kb1'
-  }
-] as const;
 
-const products = [
+const products2 = [
   { id: 1, name: "Moovandan", image: "https://www.fortheloveofnature.in/cdn/shop/products/Mangiferaindica-Moovandan_Mango_1_823x.jpg?v=1640246605", description: "A Popular Early-Bearing Variety" },
   { id: 2, name: "Kilichundan Mango", image: "https://www.greensofkerala.com/wp-content/uploads/2021/04/kilichundan-manga-2.gif", description: "The Parrot-Beak Mango with a Tangy-Sweet Flavor" },
   { id: 3, name: "Neelum", image: "https://tropicaltreeguide.com/wp-content/uploads/2023/04/Mango_Neelum_Fruit_IG_Botanical_Diversity_3-1024x1014.jpg", description: "A High-Yielding and Disease-Resistant Variety of Mango"},
@@ -51,6 +29,36 @@ const products = [
 ];
 
 export const Home = () => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/products'); // Replace with your API endpoint
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    fetchProducts();
+  }, []);
+  
+  // Sort products by stock in descending order and select the top 6 as featured products
+  const featuredProducts = [...products]
+    .sort((a, b) => b.stock - a.stock) // Sort by stock in descending order
+    .slice(0, 6); // Select the top 6 products
+  
+  if (loading) {
+    return <div>Loading...</div>;
+  }
   return (
     <div className="space-y-12">
       {/* Hero Section */}
@@ -113,7 +121,7 @@ export const Home = () => {
       <section>
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Explore More Varieties</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {products.map((product) => (
+          {products2.map((product) => (
             <div key={product.id} className="bg-white p-4 rounded-lg shadow-md">
               <img src={product.image} alt={product.name} className="w-full h-32 object-cover rounded-md mb-4" />
               <h3 className="text-lg font-semibold text-gray-800 mb-2">{product.name}</h3>

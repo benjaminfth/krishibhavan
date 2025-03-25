@@ -2,8 +2,9 @@ export interface Product {
   id: string;
   name: string;
   description: string;
-  price_registered: number;
-  price_unregistered: number;
+  price: number;
+  price_registered:number;
+  price_unregistered:number;
   sellerId: string;  // Seller's ID
   category: string;
   imageUrl: string;
@@ -30,6 +31,7 @@ export interface Booking {
   booking_date_time: Date;
   total_amount: number;
   collection_status: 'pending' | 'confirmed' | 'collected' | 'expired';
+  product?: Product; // Add this property
 }
 
 export interface CartItem {
@@ -47,6 +49,7 @@ export interface User {
   uniqueId: string;
   address: string;
   pincode: string;
+  sellerId: string;
 }
 
 export interface AuthState {

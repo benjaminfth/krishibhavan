@@ -1,11 +1,15 @@
 import os
 import logging
 from flask import Flask, request, jsonify
+from datetime import datetime, timedelta
 from pymongo import MongoClient
 import bcrypt
 from flask_cors import CORS
 import re
 from bson import ObjectId
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime, timedelta
+from urllib.parse import unquote
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
@@ -34,6 +38,28 @@ def _build_cors_preflight_response():
 def _corsify_actual_response(response):
     response.headers.add("Access-Control-Allow-Origin", "http://localhost:5173")
     return response
+
+
+def update_expired_bookings():
+    try:
+        # Calculate the cutoff time (24 hours ago)
+        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+
+        # Find bookings with status 'pending' and booking_date_time older than 24 hours
+        expired_bookings = bookings_collection.update_many(
+            {
+                'collection_status': 'pending',
+                'booking_date_time': {'$lt': cutoff_time.strftime("%Y-%m-%dT%H:%M:%S")}
+            },
+            {'$set': {'collection_status': 'expired'}}
+        )
+
+        if expired_bookings.modified_count > 0:
+            logger.info(f"Updated {expired_bookings.modified_count} bookings to 'expired' status.")
+        else:
+            logger.info("No bookings to update to 'expired' status.")
+    except Exception as e:
+        logger.error(f"Error updating expired bookings: {e}")
 
 # ======================= USER AUTHENTICATION ========================== #
 
@@ -108,7 +134,8 @@ def login():
         'address': user['address'],
         'pincode': user['pincode'],
         'uniqueId': user['uniqueId'],
-        'role': user.get('role', 'user')
+        'role': user.get('role', 'user'),
+        'sellerId': user.get('sellerId')
     }
     logger.info("User logged in successfully: %s", user_data)
     return jsonify(user_data), 200
@@ -184,26 +211,64 @@ def add_product():
     return jsonify({'message': 'Product added successfully', 'id': str(result.inserted_id)}), 201
 
 
+from urllib.parse import unquote  # Import unquote to decode URL-encoded strings
+import logging
+from urllib.parse import unquote
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @app.route('/products', methods=['GET'])
 def get_products():
-    products = list(products_collection.find())
-    products_list = [
-        {
+    user_id = request.args.get('user_id')  # Get user ID from query parameters
+    krishi_bhavan = request.args.get('krishiBhavan')
+
+    if krishi_bhavan:
+        krishi_bhavan = unquote(krishi_bhavan)  # Decode URL-encoded spaces
+        logger.info(f"Received krishiBhavan parameter: {krishi_bhavan}")
+    else:
+        logger.info("No krishiBhavan parameter provided. Fetching all products.")
+
+    # Fetch user details to determine sellerId
+    user = users_collection.find_one({'_id': ObjectId(user_id)}) if user_id else None
+    seller_id = user.get('sellerId') if user else None
+
+    # Build the query
+    query = {}
+    if krishi_bhavan:
+        query['krishiBhavan'] = krishi_bhavan  # Filter by krishiBhavan if provided
+    logger.info(f"Query to be executed: {query}")
+
+    # Fetch products from the database based on the query
+    products = list(products_collection.find(query))
+    logger.info(f"Number of products fetched: {len(products)}")
+
+    products_list = []
+    for product in products:
+        # Determine the price to display based on sellerId and krishiBhavan
+        if seller_id == 'SL0001001' and product.get('krishiBhavan') == 'krishi bhavan 1':
+            price = product.get('price_registered', 0)
+        elif seller_id == 'SL0001002' and product.get('krishiBhavan') == 'krishibhavan 2':
+            price = product.get('price_registered', 0)
+        else:
+            price = product.get('price_unregistered', 0)
+
+        products_list.append({
             'id': str(product['_id']),
             'name': product['name'],
             'description': product.get('description', ''),
-            'price_registered': product.get('price_registered', 0),  # Default to 0 if not found
+            'price': price,  # Display the determined price
+            'price_registered': product.get('price_registered', 0),  # Include registered price
             'price_unregistered': product.get('price_unregistered', 0),
             'stock': product.get('stock', 0),
             'category': product['category'],
             'krishiBhavan': product.get('krishiBhavan', ''),
             'imageUrl': product.get('imageUrl', '')
-        }
-        for product in products
-    ]
-    return jsonify(products_list), 200
+        })
 
+    logger.info("Successfully fetched products and prepared the response.")
+    return jsonify(products_list), 200
 
 @app.route('/products/<product_id>', methods=['PUT'])
 def update_product(product_id):
@@ -465,21 +530,25 @@ def get_cart_items():
 @app.route('/bookings', methods=['GET'])
 def get_user_bookings():
     user_id = request.args.get('user_id')
-    if not user_id:
-        logger.error("Failed to fetch bookings: User ID is required")
-        return jsonify({'error': 'User ID is required'}), 400
+    krishi_bhavan = request.args.get('krishiBhavan')
 
-    # try:
-    #     user_id = ObjectId(user_id)
-    # except Exception as e:
-    #     logger.error("Invalid user ID format: %s", e)
-    #     return jsonify({'error': 'Invalid user ID format'}), 400
+    if not user_id and not krishi_bhavan:
+        logger.error("Failed to fetch bookings: User ID or Krishi Bhavan is required")
+        return jsonify({'error': 'User ID or Krishi Bhavan is required'}), 400
 
-    logger.info("Fetching bookings for user_id: %s", user_id)
-    bookings = list(db.bookings.find({'user_id': user_id}))
+    query = {}
+    if user_id:
+        query['user_id'] = user_id
+    if krishi_bhavan:
+        # Decode URL-encoded string (e.g., convert "Krishi%20Bhavan%202" to "Krishi Bhavan 2")
+        decoded_krishi_bhavan = unquote(krishi_bhavan)
+        query['krishiBhavan'] = decoded_krishi_bhavan
+
+    logger.info("Fetching bookings with query: %s", query)
+    bookings = list(db.bookings.find(query))
     if not bookings:
-        logger.error("No bookings found for user_id %s", user_id)
-        return jsonify({'error': 'No bookings found for this user'}), 404
+        logger.error("No bookings found for query: %s", query)
+        return jsonify({'error': 'No bookings found'}), 404
 
     bookings_list = [
         {
@@ -491,13 +560,64 @@ def get_user_bookings():
             'krishiBhavan': booking['krishiBhavan'],
             'booking_date_time': booking['booking_date_time'],
             'total_amount': booking['total_amount'],
-            'collection_status': booking['collection_status']
-        }
+            'collection_status': booking['collection_status'],
+            # Calculate expiry_date as one day after booking_date_time
+            'expiry_date': (datetime.strptime(booking['booking_date_time'], "%Y-%m-%dT%H:%M:%S.%fZ") + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")        }
         for booking in bookings
     ]
 
-    logger.info("Fetched bookings for user_id %s: %s", user_id, bookings_list)
+    logger.info("Fetched bookings for query %s: %s", query, bookings_list)
     return jsonify(bookings_list), 200
+
+@app.route('/bookings/<booking_id>', methods=['PUT'])
+def update_booking_status(booking_id):
+    try:
+        # Validate booking ID
+        if not ObjectId.is_valid(booking_id):
+            return jsonify({'error': 'Invalid booking ID'}), 400
+
+        # Parse the request data
+        data = request.get_json()
+        new_status = data.get('collection_status')
+
+        if not new_status:
+            return jsonify({'error': 'Collection status is required'}), 400
+
+        # Update the booking in the database
+        result = bookings_collection.update_one(
+            {'_id': ObjectId(booking_id)},
+            {'$set': {'collection_status': new_status}}
+        )
+
+        if result.matched_count == 0:
+            return jsonify({'error': 'Booking not found'}), 404
+
+        return jsonify({'message': 'Booking status updated successfully'}), 200
+
+    except Exception as e:
+        logger.error(f"Error updating booking status: {e}")
+        return jsonify({'error': 'An error occurred while updating the booking status'}), 500
+    
+@app.route('/update-expired-bookings', methods=['POST'])
+def trigger_update_expired_bookings():
+    try:
+        update_expired_bookings()
+        return jsonify({'message': 'Expired bookings updated successfully'}), 200
+    except Exception as e:
+        logger.error(f"Error triggering update for expired bookings: {e}")
+        return jsonify({'error': 'An error occurred while updating expired bookings'}), 500
+
+
+from apscheduler.schedulers.background import BackgroundScheduler
+
+# Initialize the scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(update_expired_bookings, 'interval', hours=1)  # Run every hour
+scheduler.start()
+
+# Shut down the scheduler when the app exits
+import atexit
+atexit.register(lambda: scheduler.shutdown())
 
 if __name__ == '__main__':
     app.run(debug=True)

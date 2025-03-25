@@ -21,7 +21,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleAddToCart = () => {
     const office = {
       id: product.officeId,
-      name: 'Krishi Bahavan - Central Office',
+      name: product.krishiBhavan,
       location: 'Thiruvananthapuram',
       address: '123 Agriculture Road, Kerala 695001',
       contact: '+91 1234567890'
@@ -44,7 +44,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <p className="text-sm text-gray-600 mt-1">{product.description}</p>
           <div className="mt-4 flex items-center justify-between">
             <span className="text-xl font-bold text-green-700">
-              ₹{user?.uniqueId ? product.price_registered : product.price_unregistered}
+              ₹{product.price}
             </span>
             <span className={`px-2 py-1 rounded-full text-sm ${
               product.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -59,7 +59,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
             <div className="flex items-center text-gray-600">
               <MapPin className="h-4 w-4 mr-2" />
-              <span className="text-sm">Collect from nearest Krishi-Bahavan</span>
+               <span className="text-sm">{product.krishiBhavan}</span>
             </div>
           </div>
           <button
@@ -93,7 +93,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">{product.name}</h3>
                 <p className="text-green-700 font-semibold mt-1">
-                  ₹{user?.uniqueId ? product.price_registered : product.price_unregistered}
+                  ₹{product.price} x {quantity} = ₹{product.price * quantity}
                 </p>
               </div>
             </div>
