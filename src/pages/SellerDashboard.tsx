@@ -4,12 +4,7 @@ import type { Product, Booking } from '../types';
 import { format } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
 
-const stats = [
-  { name: 'Total Products', value: '24', icon: Package, color: 'bg-blue-500' },
-  { name: 'Active Bookings', value: '12', icon: TrendingUp, color: 'bg-green-500' },
-  { name: 'Customer Reach', value: '150+', icon: Users, color: 'bg-purple-500' },
-  { name: 'Pending Collections', value: '5', icon: AlertCircle, color: 'bg-yellow-500' }
-];
+
 
 export const SellerDashboard = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -32,15 +27,32 @@ export const SellerDashboard = () => {
   const [activeTab, setActiveTab] = useState<'products' | 'collections'>('collections');
   const [searchTerm, setSearchTerm] = useState('');
   const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [pendingCollections, setPendingCollections] = useState(0);
+  const [customerReach, setCustomerReach] = useState(0);
+  const [activeBookings, setActiveBookings] = useState(0);
 
   // Fetch bookings from the backend
-  const fetchBookings = async () => {
+    const fetchBookings = async () => {
     try {
       setLoadingBookings(true); // Show loading state
       const response = await fetch(`http://localhost:5000/bookings?krishiBhavan=${user?.name}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to fetch bookings');
+  
+      // Set the bookings data
       setBookings(data);
+  
+      // Calculate Pending Collections
+      const pending = data.filter((booking) => booking.collection_status === 'pending').length;
+      setPendingCollections(pending);
+  
+      // Calculate Customer Reach (unique user IDs)
+      const uniqueUsers = new Set(data.map((booking) => booking.user_id));
+      setCustomerReach(uniqueUsers.size);
+  
+      // Calculate Active Bookings (total number of bookings)
+      setActiveBookings(data.length);
     } catch (error) {
       console.error('Error fetching bookings:', error);
     } finally {
@@ -56,10 +68,18 @@ export const SellerDashboard = () => {
   
         const data = await response.json();
         setProducts(data);
+        setTotalProducts(data.length);
       } catch (error) {
         console.error("Error fetching products:", error);
       }
     };
+
+    const stats = [
+      { name: 'Total Products', value: totalProducts.toString(), icon: Package, color: 'bg-blue-500' },
+      { name: 'Total Bookings', value: activeBookings.toString(), icon: TrendingUp, color: 'bg-green-500' },
+      { name: 'Customer Reach', value: `${customerReach}+`, icon: Users, color: 'bg-purple-500' },
+      { name: 'Pending Collections', value: pendingCollections.toString(), icon: AlertCircle, color: 'bg-yellow-500' },
+    ];
 
   // Call fetchBookings when the component mounts or when the collections tab is active
   useEffect(() => {

@@ -75,7 +75,7 @@ export const Home = () => {
                 Your Trusted Source for Agricultural Supplies
               </h1>
               <p className="text-lg text-green-100 mb-8">
-                Pre-book quality seeds, saplings, pesticides, and fertilizers from your local Krishi-Bahavan
+                Pre-book quality seeds, saplings, pesticides, and fertilizers from your local Krishi-Bhavan
               </p>
               <Link to="/products"
               className="bg-white text-green-700 px-8 py-3 rounded-lg font-semibold hover:bg-green-50 transition-colors">
